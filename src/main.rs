@@ -5,16 +5,117 @@ use quick_xml::reader::Reader;
 use quick_xml::events::Event;
 use std::path::Path;
 use std::io::BufRead;
+use std::collections::HashSet;
 
-fn parse_revision<B: BufRead>(reader: &mut Reader<B>) -> Box<String> {
+#[derive(Debug, PartialEq)]
+enum WikiContext {
+  Heading1(String),
+  Heading2(String),
+  Heading3(String),
+  Heading4(String),
+  Heading5(String),
+  Heading6(String),
+}
+
+use WikiContext::*;
+
+impl WikiContext {
+  fn precedence(&self) -> u32 {
+    match self {
+      &Heading1(_) => 1,
+      &Heading2(_) => 2,
+      &Heading3(_) => 3,
+      &Heading4(_) => 4,
+      &Heading5(_) => 5,
+      &Heading6(_) => 6,
+    }
+  }
+
+  fn text(&self) -> &String {
+    match self {
+      &Heading1(ref x) => &x,
+      &Heading2(ref x) => &x,
+      &Heading3(ref x) => &x,
+      &Heading4(ref x) => &x,
+      &Heading5(ref x) => &x,
+      &Heading6(ref x) => &x,
+    }
+  }
+}
+
+#[derive(Debug, Clone)]
+struct Meaning {
+  language: String,
+  part_of_speech: String,
+}
+
+#[derive(Debug)]
+struct Word {
+  name: String,
+  meanings: Vec<Meaning>,
+}
+
+fn parse_wikitext(text: String) -> Vec<Meaning> {
+  let mut result: Vec<Meaning> = Vec::new();
+  let mut contexts: Vec<WikiContext> = Vec::new();
+
+  let languages: HashSet<&str> =
+    ["English", "Japanese"].iter().cloned().collect();
+
+  let parts_of_speech: HashSet<&str> =
+    ["Noun", "Verb", "Adjective", "Romanization", "Interjection", "Proper noun"]
+    .iter().cloned().collect();
+
+  fn apply_context(contexts: &mut Vec<WikiContext>, context: WikiContext) {
+    let new_prec = context.precedence();
+    // leave only lower-precedence contexts in the stack
+    while contexts.last().map_or(false, |c| c.precedence() >= new_prec) {
+      contexts.pop();
+    }
+    contexts.push(context);
+  };
+
+  for line in text.lines() {
+    if line.starts_with("======") {
+      apply_context(&mut contexts, Heading6(String::from(&line[6..line.len()-6])));
+    } else if line.starts_with("=====") {
+      apply_context(&mut contexts, Heading5(String::from(&line[5..line.len()-5])));
+    } else if line.starts_with("====") {
+      apply_context(&mut contexts, Heading4(String::from(&line[4..line.len()-4])));
+    } else if line.starts_with("===") {
+      apply_context(&mut contexts, Heading3(String::from(&line[3..line.len()-3])));
+    } else if line.starts_with("==") {
+      apply_context(&mut contexts, Heading2(String::from(&line[2..line.len()-2])));
+    } else if line.starts_with("=") {
+      apply_context(&mut contexts, Heading1(String::from(&line[1..line.len()-1])));
+    } else if line.starts_with("# ") {
+      if contexts.len() >= 2
+      && languages.contains(&contexts[contexts.len() - 2].text().as_str())
+      && parts_of_speech.contains(&contexts[contexts.len() - 1].text().as_str()) {
+        let language = contexts[contexts.len() - 2].text();
+        let part_of_speech = contexts[contexts.len() - 1].text();
+        result.push(Meaning {
+          language: language.clone(),
+          part_of_speech: part_of_speech.clone(),
+        });
+      }
+    }
+  }
+  result
+}
+
+fn parse_revision<B: BufRead>(reader: &mut Reader<B>) -> Vec<Meaning> {
   let mut buf = Vec::new();
-  let mut text = None;
+  let mut result = None;
   loop {
     match reader.read_event(&mut buf) {
       Ok(Event::Start(ref e)) if e.name() == b"text" => {
         let mut buf = Vec::new();
         match reader.read_event(&mut buf) {
-          Ok(Event::Text(e)) => text = Some(e.unescape_and_decode(&reader).unwrap().clone()),
+          Ok(Event::Text(e)) => {
+            let text = e.unescape_and_decode(&reader).unwrap();
+            result = Some(parse_wikitext(text));
+          },
           _ => (),
         }
       }
@@ -22,19 +123,13 @@ fn parse_revision<B: BufRead>(reader: &mut Reader<B>) -> Box<String> {
       _ => (),
     }
   }
-  Box::new(text.unwrap())
+  result.unwrap()
 }
 
-#[derive(Debug)]
-struct Page {
-  title: String,
-  text: String,
-}
-
-fn parse_page<B: BufRead>(mut reader: &mut Reader<B>) -> Box<Page> {
+fn parse_page<B: BufRead>(mut reader: &mut Reader<B>) -> Box<Word> {
   let mut buf = Vec::new();
   let mut title = None;
-  let mut text = None;
+  let mut meanings = None;
   loop {
     match reader.read_event(&mut buf) {
       Ok(Event::Start(ref e)) => {
@@ -47,7 +142,7 @@ fn parse_page<B: BufRead>(mut reader: &mut Reader<B>) -> Box<Page> {
             }
           },
           b"revision" => {
-            text = Some(parse_revision(&mut reader));
+            meanings = Some(parse_revision(&mut reader));
           },
           _ => (),
         }
@@ -56,9 +151,9 @@ fn parse_page<B: BufRead>(mut reader: &mut Reader<B>) -> Box<Page> {
       _ => (),
     }
   }
-  Box::new(Page {
-    title: title.unwrap(),
-    text: *text.unwrap(),
+  Box::new(Word {
+    name: title.unwrap(),
+    meanings: meanings.unwrap(),
   })
 }
 
@@ -72,8 +167,11 @@ fn main() {
       Ok(Event::Start(ref e)) => {
         match e.name() {
           b"page" => {
-            let page = parse_page(&mut reader);
-            println!("{:?}", page.title);
+            let word = parse_page(&mut reader);
+            println!("{:?}", word.name);
+            for meaning in word.meanings {
+              println!("{:?}", meaning);
+            }
           }
           _ => (),
         }
