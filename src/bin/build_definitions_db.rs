@@ -7,11 +7,14 @@ use std::collections::HashSet;
 use rusqlite::{Connection, Transaction};
 
 fn main() {
+    // TODO: figure out list of languages automatically
     let languages: HashSet<&str> = [
         "English", "Japanese", "Chinese", "Korean", "Lojban", "German", "French"
     ].iter()
         .cloned()
         .collect();
+
+    // TODO: figure out POS list automatically
     let parts_of_speech: HashSet<&str> = [
         "Noun",
         "Verb",
@@ -26,6 +29,10 @@ fn main() {
         "Hanzi",
         "Kanji",
         "Hanja",
+        "Brivla",
+        "Gismu",
+        "Rafsi",
+        "Cmavo",
     ].iter()
         .cloned()
         .collect();
