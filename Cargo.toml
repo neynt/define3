@@ -1,7 +1,8 @@
 [package]
-name = "define"
+name = "define3"
 version = "0.1.0"
 authors = ["Jim Zhang <hyriodula@gmail.com>"]
 
 [dependencies]
 quick-xml = "0.10.0"
+rusqlite = "0.13.0"

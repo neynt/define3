@@ -1,6 +1,6 @@
 #!/bin/bash
 # Builds and runs the project on every change.
-while inotifywait -e close_write src/*.rs > /dev/null 2>/dev/null; do
+while inotifywait -e close_write src/*.rs src/**/*.rs > /dev/null 2>/dev/null; do
   clear
-  timeout 1s cargo run
+  cargo build && cargo build --release
 done
