@@ -1,5 +1,4 @@
 extern crate define3;
-extern crate quick_xml;
 extern crate rusqlite;
 
 use std::path::Path;
@@ -18,6 +17,7 @@ fn main() {
         "Verb",
         "Adjective",
         "Adverb",
+        "Definitions",
         "Infix",
         "Conjunction",
         "Romanization",
@@ -25,15 +25,13 @@ fn main() {
         "Proper noun",
         "Hanzi",
         "Kanji",
+        "Hanja",
     ].iter()
         .cloned()
         .collect();
 
     let mut conn = Connection::open(Path::new("/trove/data/enwikt-20180301.sqlite3")).unwrap();
-
     let tx = Transaction::new(&mut conn, rusqlite::TransactionBehavior::Exclusive).unwrap();
-
-    tx.execute("DROP TABLE IF EXISTS languages", &[]).unwrap();
 
     tx.execute("DROP TABLE IF EXISTS words", &[]).unwrap();
     tx.execute(

@@ -6,3 +6,4 @@ authors = ["Jim Zhang <hyriodula@gmail.com>"]
 [dependencies]
 quick-xml = "0.10.0"
 rusqlite = "0.13.0"
+colored = "1.6.0"
