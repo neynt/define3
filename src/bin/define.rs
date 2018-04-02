@@ -2,12 +2,10 @@ extern crate colored;
 extern crate define3;
 extern crate rusqlite;
 extern crate textwrap;
-extern crate regex;
 
 use define3::Meaning;
 
 use colored::*;
-use regex::Regex;
 use rusqlite::Connection;
 use std::collections::BTreeMap;
 use std::env;
@@ -43,16 +41,6 @@ fn main() {
             .push(meaning.definition);
     }
 
-    // TODO: This should be done when building the DB.
-    // TODO: combine link REs into one
-    let re_display_link = Regex::new(r"\[\[[^\]]*?\|(?P<text>.*?)\]\]").unwrap();
-    let re_link = Regex::new(r"\[\[(?P<text>.*?)\]\]").unwrap();
-    let re_html_comment = Regex::new(r"<!--.*?-->").unwrap();
-
-    // This technically doesn't work if some jerk decided to format a single quote.
-    let re_bold = Regex::new(r"'''(?P<text>[^']*?)'''").unwrap();
-    let re_italic = Regex::new(r"''(?P<text>[^']*?)''").unwrap();
-
     let wrapper = textwrap::Wrapper::new(80)
         .initial_indent("    ")
         .subsequent_indent("      ");
@@ -62,12 +50,6 @@ fn main() {
         for (pos, defns) in poses {
             println!("  {}", pos.white());
             for defn in defns {
-                //let defn = re_link.replace_all(&defn, "\x1b[0;36m$x\x1b[0m");
-                let defn = re_display_link.replace_all(&defn, "$text");
-                let defn = re_link.replace_all(&defn, "$text");
-                let defn = re_html_comment.replace_all(&defn, "");
-                let defn = re_bold.replace_all(&defn, "$text");
-                let defn = re_italic.replace_all(&defn, "$text");
                 let defn = wrapper.fill(&defn);
                 println!("{}", defn);
             }

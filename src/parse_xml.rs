@@ -4,19 +4,11 @@ use parse_xml::quick_xml::reader::Reader;
 use parse_xml::quick_xml::events::Event;
 
 use std::path::Path;
-use std::collections::HashSet;
 use std::io::BufRead;
 
-use parse_wikitext::parse_wikitext;
+use Page;
 
-use Word;
-use Meaning;
-
-fn parse_revision<B: BufRead>(
-    reader: &mut Reader<B>,
-    languages: &HashSet<&str>,
-    parts_of_speech: &HashSet<&str>,
-) -> Option<Vec<Meaning>> {
+fn parse_revision<B: BufRead>(reader: &mut Reader<B>) -> Option<String> {
     let mut buf = Vec::new();
     let mut result = None;
     loop {
@@ -26,7 +18,7 @@ fn parse_revision<B: BufRead>(
                 match reader.read_event(&mut buf) {
                     Ok(Event::Text(e)) => {
                         let text = e.unescape_and_decode(&reader).unwrap();
-                        result = Some(parse_wikitext(text, languages, parts_of_speech));
+                        result = Some(text);
                     }
                     _ => (),
                 }
@@ -38,14 +30,10 @@ fn parse_revision<B: BufRead>(
     result
 }
 
-pub fn parse_page<B: BufRead>(
-    mut reader: &mut Reader<B>,
-    languages: &HashSet<&str>,
-    parts_of_speech: &HashSet<&str>,
-) -> Option<Box<Word>> {
+pub fn parse_page<B: BufRead>(mut reader: &mut Reader<B>) -> Option<Page> {
     let mut buf = Vec::new();
     let mut title = None;
-    let mut meanings = None;
+    let mut content = None;
     loop {
         match reader.read_event(&mut buf) {
             Ok(Event::Start(ref e)) => {
@@ -58,7 +46,7 @@ pub fn parse_page<B: BufRead>(
                         _ => (),
                     },
                     b"revision" => {
-                        meanings = parse_revision(&mut reader, languages, parts_of_speech);
+                        content = parse_revision(&mut reader);
                     }
                     _ => (),
                 }
@@ -68,19 +56,12 @@ pub fn parse_page<B: BufRead>(
         }
     }
     // and_then is a poor name for >>=
-    title.and_then(|title| {
-        meanings.map(|meanings| {
-            Box::new(Word {
-                name: title,
-                meanings: meanings,
-            })
-        })
-    })
+    title.and_then(|title| content.map(|content| Page { title, content }))
 }
 
-pub fn extract_words<F>(languages: &HashSet<&str>, parts_of_speech: &HashSet<&str>, mut f: F)
+pub fn for_pages<F>(mut f: F)
 where
-    F: FnMut(Box<Word>) -> (),
+    F: FnMut(Page) -> (),
 {
     let mut buf = Vec::new();
     let mut reader = Reader::from_file(Path::new(
@@ -90,8 +71,8 @@ where
         match reader.read_event(&mut buf) {
             Ok(Event::Start(ref e)) => match e.name() {
                 b"page" => {
-                    let word = parse_page(&mut reader, &languages, &parts_of_speech);
-                    word.map(|word| f(word));
+                    let page = parse_page(&mut reader);
+                    page.map(|page| f(page));
                 }
                 _ => (),
             },
