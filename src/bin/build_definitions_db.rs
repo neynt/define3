@@ -89,7 +89,6 @@ fn main() {
     let re_bold = Regex::new(r"'''(?P<text>[^']*?)'''").unwrap();
     let re_italic = Regex::new(r"''(?P<text>[^']*?)''").unwrap();
 
-
     define3::parse_xml::for_pages(|page| {
         if page.title.starts_with("Template:") {
             let content = page.content;
@@ -98,27 +97,21 @@ fn main() {
             let content = content.into_owned();
             let content = match re_includeonly.captures(&content) {
                 None => content.clone(),
-                Some(captures) => captures.name("text").unwrap().as_str().to_string(),
+                Some(captures) => captures.name("text").unwrap().as_str().to_owned(),
             };
             let title = &page.title[9..];
             tx.execute(
                 "insert into templates (name, content) values (?1, ?2)",
-                &[
-                    &title,
-                    &content,
-                ],
+                &[&title, &content],
             ).unwrap();
-            templates.insert(title.to_string(), content);
+            templates.insert(title.to_owned(), content);
         } else if page.title.starts_with("Module:") {
             let title = &page.title[7..];
             tx.execute(
                 "insert into modules (name, content) values (?1, ?2)",
-                &[
-                    &title,
-                    &page.content,
-                ],
+                &[&title, &page.content],
             ).unwrap();
-            modules.insert(title.to_string(), page.content);
+            modules.insert(title.to_owned(), page.content);
         }
     });
 
