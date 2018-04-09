@@ -4,6 +4,7 @@ extern crate getopts;
 extern crate regex;
 extern crate rusqlite;
 extern crate textwrap;
+extern crate nom;
 
 use define3::Meaning;
 
@@ -64,13 +65,14 @@ fn replace_template(_conn: &Connection, caps: &Captures) -> String {
     let elems: Vec<&str> = s.split('|').collect();
     //expand_template(conn, &elems)
     match elems[0] {
-        //"lb" => format!("({})", elems[2]),
-        //"m" | "l" => elems[2].to_owned(),
-        //"alternative form of" => format!("Alternative form of {}", elems[1]),
-        //"ngd" | "unsupported" | "non-gloss definition" => elems[1].to_owned(),
-        //"ja-romanization of" => format!("Rōmaji transcription of {}", elems[1]),
-        //"sumti" => format!("x{}", elems[1]),
-        //"," => ",".to_owned(),
+        "," => ",".to_owned(),
+        "ngd" | "unsupported" | "non-gloss definition" => elems[1].to_owned(),
+        "alternative form of" => format!("Alternative form of {}", elems[1]),
+        "ja-romanization of" => format!("Rōmaji transcription of {}", elems[1]),
+        "sumti" => format!("x{}", elems[1]),
+        "ja-def" => format!("{}:", elems[1]),
+        "lb" => format!("({})", elems[2]),
+        "m" | "l" => elems[2].to_owned(),
         _ => format!("{{{{{}}}}}", elems.join("|")),
     }
 }
@@ -105,7 +107,7 @@ fn main() {
 
     // TODO: this shit don't support nested templates, which are unfortunately a thing. we might
     // need a more legit parsing solution
-    let re_template = Regex::new(r"\{\{(?P<text>(?s:.)*?)\}\}").unwrap();
+    let re_template = Regex::new(r"\{\{(?P<text>(?s:[^\{])*?)\}\}").unwrap();
 
     if args.len() < 2 {
         println!("Usage: {} WORD/WORDS", &args[0]);
@@ -116,6 +118,14 @@ fn main() {
     let langs = *get_word_defs(&conn, &args[1]);
     print_words(&langs, |s| {
         let replace_template_ = |caps: &Captures| -> String { replace_template(&conn, caps) };
-        re_template.replace_all(&s, replace_template_).to_string()
+        let mut result = s.to_owned();
+        loop {
+            let result_ = re_template.replace_all(&result, &replace_template_).to_string();
+            if result == result_ {
+                break
+            }
+            result = result_;
+        }
+        result
     });
 }
