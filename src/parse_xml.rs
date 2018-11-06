@@ -64,8 +64,9 @@ where
     F: FnMut(Page) -> (),
 {
     let mut buf = Vec::new();
+    // TODO: I really shouldn't hardcode paths like this
     let mut reader = Reader::from_file(Path::new(
-        "/trove/data/enwiktionary-20180301-pages-articles.xml",
+        "/trove/data/enwikt/enwiktionary-20180301-pages-articles.xml",
     )).unwrap();
     'read_words: loop {
         match reader.read_event(&mut buf) {

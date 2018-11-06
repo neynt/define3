@@ -9,6 +9,9 @@ use define3::parse_wikitext::parse_wikitext;
 use regex::Regex;
 use rusqlite::{Connection, Transaction};
 use std::collections::{HashMap, HashSet};
+use std::fs;
+use std::fs::File;
+use std::io::Write;
 use std::path::Path;
 
 fn main() {
@@ -23,9 +26,7 @@ fn main() {
         "Japanese",
         "Korean",
         "Lojban",
-    ].iter()
-        .cloned()
-        .collect();
+    ].iter().cloned().collect();
 
     // TODO: figure out POS list automatically
     let parts_of_speech: HashSet<&str> = [
@@ -43,15 +44,14 @@ fn main() {
         "Interjection",
         "Kanji",
         "Noun",
+        "Phrase",
         "Proper noun",
         "Rafsi",
         "Romanization",
         "Verb",
-    ].iter()
-        .cloned()
-        .collect();
+    ].iter().cloned().collect();
 
-    let mut conn = Connection::open(Path::new("/trove/data/enwikt-20180301.sqlite3")).unwrap();
+    let mut conn = Connection::open(Path::new("/trove/data/enwikt/enwikt-20180301.sqlite3")).unwrap();
     let tx = Transaction::new(&mut conn, rusqlite::TransactionBehavior::Exclusive).unwrap();
 
     let mut count: u64 = 0;
@@ -111,6 +111,13 @@ fn main() {
                 "insert into modules (name, content) values (?1, ?2)",
                 &[&title, &page.content],
             ).unwrap();
+
+            println!("module: {}", page.title);
+            let path = format!("/trove/data/enwikt/modules/{}.lua", page.title);
+            let path = Path::new(&path);
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            let mut file = File::create(path).unwrap();
+            file.write_all(page.content.as_bytes()).unwrap();
             modules.insert(title.to_owned(), page.content);
         }
     });

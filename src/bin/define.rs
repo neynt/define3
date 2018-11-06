@@ -46,24 +46,26 @@ fn get_word_defs(
 // functions and often call out into Lua code.
 // https://www.mediawiki.org/wiki/Help:Extension:ParserFunctions
 // https://www.mediawiki.org/wiki/Extension:Scribunto
-fn _expand_template(conn: &Connection, args: &[&str]) -> String {
+fn expand_template(conn: &Connection, args: &[&str]) -> String {
     fn get_template_content(conn: &Connection, name: &str) -> String {
         let result = conn.query_row(
             "SELECT content FROM templates WHERE name = ?1",
             &[&name],
             |row| row.get(0),
         );
+        println!("{}", name);
         result.unwrap()
     }
     get_template_content(conn, args[0])
 }
 
 // For now, we just special-case a couple common templates.
-// (or maybe not even that; turns out nested templates are a thing)
-fn replace_template(_conn: &Connection, caps: &Captures) -> String {
+fn replace_template(conn: &Connection, caps: &Captures) -> String {
     let s = caps.get(1).unwrap().as_str();
     let elems: Vec<&str> = s.split('|').collect();
-    //expand_template(conn, &elems)
+    //match elems[0] {
+    //    _ => expand_template(conn, &elems)
+    //}
     match elems[0] {
         "," => ",".to_owned(),
         "ngd" | "unsupported" | "non-gloss definition" => elems[1].to_owned(),
@@ -105,8 +107,9 @@ where
 fn main() {
     let args: Vec<String> = env::args().collect();
 
-    // TODO: this shit don't support nested templates, which are unfortunately a thing. we might
-    // need a more legit parsing solution
+    // TODO: We currently support nested templates in a very bad way. We expand templates in
+    // layers, most deeply nested first, and we do this by excluding curly braces in the regex.
+    // Should eventually use a more legit parser (nom maybe)
     let re_template = Regex::new(r"\{\{(?P<text>(?s:[^\{])*?)\}\}").unwrap();
 
     if args.len() < 2 {
@@ -114,13 +117,14 @@ fn main() {
         return;
     }
 
-    let conn = Connection::open(Path::new("/trove/data/enwikt-20180301.sqlite3")).unwrap();
+    let conn = Connection::open(Path::new("/trove/data/enwikt/enwikt-20180301.sqlite3")).unwrap();
     let langs = *get_word_defs(&conn, &args[1]);
     print_words(&langs, |s| {
         let replace_template_ = |caps: &Captures| -> String { replace_template(&conn, caps) };
         let mut result = s.to_owned();
         loop {
             let result_ = re_template.replace_all(&result, &replace_template_).to_string();
+            //println!("{}", result_);
             if result == result_ {
                 break
             }
