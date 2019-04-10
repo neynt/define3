@@ -3,9 +3,9 @@
 ---
 
 Offline command-line dictionary based on Wiktionary, thus supporting basically
-every word ever.
+every word in every language ever.
 
-![](https://i.neynt.ca/k1UhBbvpKqJ57q1z.png)
+![](https://i.neynt.ca/h6Qd2Z7UjCA1tGeN.png)
 
 ## Usage
 
