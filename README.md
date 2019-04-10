@@ -2,14 +2,21 @@
 
 ---
 
-Offline command-line dictionary based on Wiktionary, thus supporting every word
-in every language.
+Offline command-line dictionary based on Wiktionary, thus supporting basically
+every word ever.
 
 ![](https://i.neynt.ca/k1UhBbvpKqJ57q1z.png)
 
+## Usage
+
+- Download the Wiktionary `pages-articles.xml.bz2` dump.
+  - [https://dumps.wikimedia.org/enwiktionary/](https://dumps.wikimedia.org/enwiktionary/)
+- Extract the bz2.
+- Run `build_definitions_db` on the resulting xml file.
+- Run `define` to define words.
+
 ## TODO
 
-- Make it possible for other people to use by not hardcoding a billion things.
 - Detect languages and parts of speech automatically (is currently hardcoded)
 - Render Wiki templates
   - This is super hard because many templates eventually resolve to Scribunto

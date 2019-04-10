@@ -9,6 +9,7 @@ extern crate nom;
 use define3::Meaning;
 
 use colored::*;
+use getopts::Options;
 use regex::{Captures, Regex};
 use rusqlite::Connection;
 use std::collections::BTreeMap;
@@ -59,23 +60,33 @@ fn expand_template(conn: &Connection, args: &[&str]) -> String {
     get_template_content(conn, args[0])
 }
 
-// For now, we just special-case a couple common templates.
-fn replace_template(conn: &Connection, caps: &Captures) -> String {
+// For now, we just hardcode a couple common templates.
+fn replace_template(_conn: &Connection, caps: &Captures) -> String {
     let s = caps.get(1).unwrap().as_str();
     let elems: Vec<&str> = s.split('|').collect();
     //match elems[0] {
     //    _ => expand_template(conn, &elems)
     //}
     match elems[0] {
-        "," => ",".to_owned(),
-        "ngd" | "unsupported" | "non-gloss definition" => elems[1].to_owned(),
-        "alternative form of" => format!("Alternative form of {}", elems[1]),
-        "ja-romanization of" => format!("Rōmaji transcription of {}", elems[1]),
-        "sumti" => format!("x{}", elems[1]),
-        "ja-def" => format!("{}:", elems[1]),
-        "lb" => format!("({})", elems[2]),
-        "m" | "l" => elems[2].to_owned(),
-        _ => format!("{{{{{}}}}}", elems.join("|")),
+        "," =>
+            ",".to_owned(),
+        "ngd" | "unsupported" | "non-gloss definition" =>
+            elems[1].to_owned(),
+        "alternative form of" =>
+            format!("Alternative form of {}", elems[1]),
+        "ja-romanization of" =>
+            format!("Rōmaji transcription of {}", elems[1]),
+        "sumti" =>
+            format!("x{}", elems[1]),
+        "ja-def" =>
+            format!("{}:", elems[1]),
+        "qualifier" =>
+            format!("({})", elems[1]),
+        "lb" =>
+            format!("({})", elems[2]),
+        "m" | "l" =>
+            elems[2].to_owned(),
+        _ => caps.get(0).unwrap().as_str().to_owned(),
     }
 }
 
@@ -106,29 +117,39 @@ where
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-
-    // TODO: We currently support nested templates in a very bad way. We expand templates in
-    // layers, most deeply nested first, and we do this by excluding curly braces in the regex.
-    // Should eventually use a more legit parser (nom maybe)
-    let re_template = Regex::new(r"\{\{(?P<text>(?s:[^\{])*?)\}\}").unwrap();
-
-    if args.len() < 2 {
-        println!("Usage: {} WORD/WORDS", &args[0]);
+    let mut opts = Options::new();
+    opts.optflag("h", "help", "print this help text");
+    opts.optflag("r", "raw", "don't expand wiki templates");
+    let matches = opts.parse(&args[1..]).unwrap();
+    if matches.opt_present("h") || matches.free.len() != 1 {
+        let brief = format!("Usage: {} [options] WORD", args[0]);
+        print!("{}", opts.usage(&brief));
         return;
     }
 
-    let conn = Connection::open(Path::new("/trove/data/enwikt/enwikt-20180301.sqlite3")).unwrap();
-    let langs = *get_word_defs(&conn, &args[1]);
+    // TODO: We currently support nested templates in a very bad way. We expand templates in
+    // layers, most deeply nested first, and we do this by excluding curly braces in the regex.
+    // Should eventually use a more legit parser (nom maybe?)
+    let re_template = Regex::new(r"\{\{(?P<text>(?s:[^\{])*?)\}\}").unwrap();
+
+    let mut sqlite_path = dirs::data_dir().unwrap();
+    sqlite_path.push("define3");
+    sqlite_path.push("define3.sqlite3");
+    let conn = Connection::open(Path::new(&sqlite_path)).unwrap();
+
+    let langs = *get_word_defs(&conn, &matches.free[0]);
     print_words(&langs, |s| {
-        let replace_template_ = |caps: &Captures| -> String { replace_template(&conn, caps) };
+        let replace_template = |caps: &Captures| -> String { replace_template(&conn, caps) };
         let mut result = s.to_owned();
-        loop {
-            let result_ = re_template.replace_all(&result, &replace_template_).to_string();
-            //println!("{}", result_);
-            if result == result_ {
-                break
+        if !matches.opt_present("r") {
+            loop {
+                let result_ = re_template.replace_all(&result, &replace_template).to_string();
+                //println!("{}", result_);
+                if result == result_ {
+                    break
+                }
+                result = result_;
             }
-            result = result_;
         }
         result
     });

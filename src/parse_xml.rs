@@ -59,15 +59,13 @@ pub fn parse_page<B: BufRead>(mut reader: &mut Reader<B>) -> Option<Page> {
     title.and_then(|title| content.map(|content| Page { title, content }))
 }
 
-pub fn for_pages<F>(mut f: F)
+pub fn for_pages<F>(filename: &str, mut f: F)
 where
     F: FnMut(Page) -> (),
 {
     let mut buf = Vec::new();
     // TODO: I really shouldn't hardcode paths like this
-    let mut reader = Reader::from_file(Path::new(
-        "/trove/data/enwikt/enwiktionary-20180301-pages-articles.xml",
-    )).unwrap();
+    let mut reader = Reader::from_file(Path::new(filename)).unwrap();
     'read_words: loop {
         match reader.read_event(&mut buf) {
             Ok(Event::Start(ref e)) => match e.name() {

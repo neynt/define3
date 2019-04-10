@@ -1,16 +1,18 @@
 extern crate define3;
 extern crate regex;
 extern crate rusqlite;
+extern crate getopts;
 
 use define3::{Module, Template, Word};
 use define3::PageContent;
 use define3::parse_wikitext::parse_wikitext;
 
+use getopts::Options;
 use regex::Regex;
 use rusqlite::{Connection, Transaction};
 use std::collections::{HashMap, HashSet};
-use std::fs;
 use std::fs::File;
+use std::fs;
 use std::io::Write;
 use std::path::Path;
 
@@ -51,8 +53,26 @@ fn main() {
         "Verb",
     ].iter().cloned().collect();
 
-    let mut conn = Connection::open(Path::new("/trove/data/enwikt/enwikt-20180301.sqlite3")).unwrap();
+    let args: Vec<String> = std::env::args().collect();
+    let mut opts = Options::new();
+    opts.optflag("h", "help", "print this help text");
+    let matches = opts.parse(&args[1..]).unwrap();
+    if matches.opt_present("h") || matches.free.len() != 1 {
+        let brief = format!("Usage: {} PATH_TO_enwiktionary-YYYYMMDD-pages-meta-current.xml [options]", args[0]);
+        print!("{}", opts.usage(&brief));
+        return;
+    }
+    let xml_path = matches.free[0].clone();
+
+    let mut sqlite_path = dirs::data_dir().unwrap();
+    sqlite_path.push("define3");
+    std::fs::create_dir_all(&sqlite_path).unwrap();
+    sqlite_path.push("define3.sqlite3");
+
+    let mut conn = Connection::open(&sqlite_path).unwrap();
     let tx = Transaction::new(&mut conn, rusqlite::TransactionBehavior::Exclusive).unwrap();
+
+    println!("Saving data to {:?}", sqlite_path);
 
     let mut count: u64 = 0;
 
@@ -89,7 +109,7 @@ fn main() {
     let re_bold = Regex::new(r"'''(?P<text>[^']*?)'''").unwrap();
     let re_italic = Regex::new(r"''(?P<text>[^']*?)''").unwrap();
 
-    define3::parse_xml::for_pages(|page| {
+    define3::parse_xml::for_pages(&xml_path, |page| {
         if page.title.starts_with("Template:") {
             let content = page.content;
             let content = re_noinclude.replace_all(&content, "");
@@ -112,7 +132,7 @@ fn main() {
                 &[&title, &page.content],
             ).unwrap();
 
-            println!("module: {}", page.title);
+            println!("Saved module: {}", page.title);
             let path = format!("/trove/data/enwikt/modules/{}.lua", page.title);
             let path = Path::new(&path);
             fs::create_dir_all(path.parent().unwrap()).unwrap();
@@ -135,7 +155,7 @@ fn main() {
         &[],
     ).unwrap();
 
-    define3::parse_xml::for_pages(|page| {
+    define3::parse_xml::for_pages(&xml_path, |page| {
         let page_content = match page.title.split(':').next() {
             Some("Template") => Box::new(PageContent::Template(Template {
                 name: page.title,
