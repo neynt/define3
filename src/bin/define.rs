@@ -16,7 +16,7 @@ use std::collections::BTreeMap;
 use std::env;
 use std::path::Path;
 
-fn get_word_defs(
+fn get_defns_by_lang(
     conn: &Connection,
     word: &str,
 ) -> Box<BTreeMap<String, BTreeMap<String, Vec<String>>>> {
@@ -120,6 +120,7 @@ fn main() {
     let mut opts = Options::new();
     opts.optflag("h", "help", "print this help text");
     opts.optflag("r", "raw", "don't expand wiki templates");
+    opts.optopt("l", "language", "only print this language", "lang");
     let matches = opts.parse(&args[1..]).unwrap();
     if matches.opt_present("h") || matches.free.len() != 1 {
         let brief = format!("Usage: {} [options] WORD", args[0]);
@@ -137,7 +138,17 @@ fn main() {
     sqlite_path.push("define3.sqlite3");
     let conn = Connection::open(Path::new(&sqlite_path)).unwrap();
 
-    let langs = *get_word_defs(&conn, &matches.free[0]);
+    let all_langs = *get_defns_by_lang(&conn, &matches.free[0]);
+    let langs =
+        match matches.opt_str("l") {
+            None => all_langs,
+            Some(lang) => {
+                let mut result = BTreeMap::new();
+                result.insert(lang.clone(), all_langs.get(&lang).unwrap().clone());
+                result
+            },
+        }
+    ;
     print_words(&langs, |s| {
         let replace_template = |caps: &Captures| -> String { replace_template(&conn, caps) };
         let mut result = s.to_owned();
