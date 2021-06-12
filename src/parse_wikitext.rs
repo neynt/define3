@@ -96,7 +96,7 @@ pub fn parse_wikitext(
     let mut result: Vec<Meaning> = Vec::new();
     let mut context_stack: ContextStack = ContextStack::new();
 
-    let mut stack_apply = |context_stack: &mut ContextStack, wiki_context: &Fn(String) -> WikiContext, line: &str, slice: &Option<&str>| {
+    let stack_apply = |context_stack: &mut ContextStack, wiki_context: &dyn Fn(String) -> WikiContext, line: &str, slice: &Option<&str>| {
         slice.map_or_else(|| {
             println!("Could not parse line: {}", line);
         }, |slice| {

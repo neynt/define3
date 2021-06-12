@@ -1,6 +1,6 @@
 extern crate quick_xml;
 
-use parse_xml::quick_xml::reader::Reader;
+use parse_xml::quick_xml::Reader;
 use parse_xml::quick_xml::events::Event;
 
 use std::path::Path;
@@ -64,7 +64,6 @@ where
     F: FnMut(Page) -> (),
 {
     let mut buf = Vec::new();
-    // TODO: I really shouldn't hardcode paths like this
     let mut reader = Reader::from_file(Path::new(filename)).unwrap();
     'read_words: loop {
         match reader.read_event(&mut buf) {

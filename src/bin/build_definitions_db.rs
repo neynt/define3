@@ -81,22 +81,22 @@ fn main() {
 
     println!("Pass 1: Collecting templates and modules");
 
-    tx.execute("DROP TABLE IF EXISTS templates", &[]).unwrap();
+    tx.execute("DROP TABLE IF EXISTS templates", []).unwrap();
     tx.execute(
         "CREATE TABLE templates (
              name           text not null,
              content        text not null
          )",
-        &[],
+        [],
     ).unwrap();
 
-    tx.execute("DROP TABLE IF EXISTS modules", &[]).unwrap();
+    tx.execute("DROP TABLE IF EXISTS modules", []).unwrap();
     tx.execute(
         "CREATE TABLE modules (
              name           text not null,
              content        text not null
          )",
-        &[],
+        [],
     ).unwrap();
 
     let re_noinclude = Regex::new(r"<noinclude>(?P<text>(?s:.)*?)</noinclude>").unwrap();
@@ -122,14 +122,14 @@ fn main() {
             let title = &page.title[9..];
             tx.execute(
                 "insert into templates (name, content) values (?1, ?2)",
-                &[&title, &content],
+                &[&title, &content.as_str()],
             ).unwrap();
             templates.insert(title.to_owned(), content);
         } else if page.title.starts_with("Module:") {
             let title = &page.title[7..];
             tx.execute(
                 "insert into modules (name, content) values (?1, ?2)",
-                &[&title, &page.content],
+                [&title, &page.content.as_str()],
             ).unwrap();
 
             println!("Saved module: {}", page.title);
@@ -144,7 +144,7 @@ fn main() {
 
     println!("Pass 2: Collecting words");
 
-    tx.execute("DROP TABLE IF EXISTS words", &[]).unwrap();
+    tx.execute("DROP TABLE IF EXISTS words", []).unwrap();
     tx.execute(
         "CREATE TABLE words (
              name           text not null,
@@ -152,7 +152,7 @@ fn main() {
              part_of_speech text not null,
              definition     text not null
          )",
-        &[],
+        [],
     ).unwrap();
 
     define3::parse_xml::for_pages(&xml_path, |page| {

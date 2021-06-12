@@ -23,11 +23,11 @@ fn get_word_defs(
     let mut stmt = conn.prepare(
         "SELECT language, part_of_speech, definition FROM words WHERE name = ?1",
     ).unwrap();
-    let word_iter = stmt.query_map(&[&word], |row| Meaning {
-        language: row.get(0),
-        part_of_speech: row.get(1),
-        definition: row.get(2),
-    }).unwrap();
+    let word_iter = stmt.query_map(&[&word], |row| Ok (Meaning {
+        language: row.get(0).unwrap(),
+        part_of_speech: row.get(1).unwrap(),
+        definition: row.get(2).unwrap(),
+    })).unwrap();
 
     let mut langs: BTreeMap<String, BTreeMap<String, Vec<String>>> = BTreeMap::new();
 
@@ -94,7 +94,7 @@ fn print_words<F>(langs: &BTreeMap<String, BTreeMap<String, Vec<String>>>, mut f
 where
     F: FnMut(&str) -> String,
 {
-    let wrapper = textwrap::Wrapper::new(80)
+    let textwrap_opts = textwrap::Options::new(80)
         .initial_indent("    ")
         .subsequent_indent("      ");
 
@@ -104,7 +104,7 @@ where
             println!("  {}", pos.white());
             for defn in defns {
                 let defn = format(defn);
-                let defn = wrapper.fill(&defn);
+                let defn = textwrap::fill(&defn, &textwrap_opts);
                 println!("{}", defn);
             }
         }
