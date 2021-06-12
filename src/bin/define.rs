@@ -144,7 +144,9 @@ fn main() {
             None => all_langs,
             Some(lang) => {
                 let mut result = BTreeMap::new();
-                result.insert(lang.clone(), all_langs.get(&lang).unwrap().clone());
+                for &result_for_lang in all_langs.get(&lang).iter() {
+                    result.insert(lang.clone(), result_for_lang.clone());
+                }
                 result
             },
         }
